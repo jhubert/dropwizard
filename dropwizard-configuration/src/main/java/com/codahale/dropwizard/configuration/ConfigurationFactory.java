@@ -30,6 +30,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ConfigurationFactory<T> {
     private final Class<T> klass;
     private final String propertyPrefix;
+    private final String envVarPrefix;
     private final ObjectMapper mapper;
     private final Validator validator;
     private final YAMLFactory yamlFactory;
@@ -45,9 +46,10 @@ public class ConfigurationFactory<T> {
     public ConfigurationFactory(Class<T> klass,
                                 Validator validator,
                                 ObjectMapper objectMapper,
-                                String propertyPrefix) {
+                                String propertyPrefix, String envVarPrefix) {
         this.klass = klass;
         this.propertyPrefix = propertyPrefix.endsWith(".") ? propertyPrefix : propertyPrefix + '.';
+        this.envVarPrefix = envVarPrefix.endsWith("_") ? envVarPrefix : envVarPrefix + '_';
         this.mapper = objectMapper.copy();
         mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         this.validator = validator;
@@ -99,6 +101,13 @@ public class ConfigurationFactory<T> {
             if (prefName.startsWith(propertyPrefix)) {
                 final String configName = prefName.substring(propertyPrefix.length());
                 addOverride(node, configName, System.getProperty(prefName));
+            }
+        }
+        for (Map.Entry<Object, Object> var : System.getenv().entrySet()) {
+            final String varName = (String) var.getKey();
+            if (varName.startsWith(envVarPrefix)) {
+                final String configName = varName.substring(envVarPrefix.length());
+                addOverride(node, configName, System.getenv(varName));
             }
         }
         final T config = mapper.readValue(new TreeTraversingParser(node), klass);
